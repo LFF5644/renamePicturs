@@ -1,0 +1,6 @@
+/pictures/
+/output/
+
+# NPM
+/node_modules/
+/package-lock.json

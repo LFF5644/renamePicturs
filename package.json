@@ -1,0 +1,17 @@
+{
+  "name": "rename-pictures",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "help": "node main.js --help",
+	"start": "node main.js pictures"
+  },
+  "keywords": [],
+  "author": "LFF5644",
+  "license": "ISC",
+  "dependencies": {
+    "exif": "^0.6.0"
+  }
+}
