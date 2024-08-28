@@ -37,9 +37,11 @@ function copyFilePromise(file,newFile){return new Promise(resolve=>{
 })}
 function getImageExifData(image){return new Promise((resolve,reject)=>{
 	exif.ExifImage({image},(error,exifData)=>{
-		if(error){
-			console.log("Fehler beim Öffnen der Bilddatei!");
-			console.log(error);
+		if(error&&error.code==="NO_EXIF_SEGMENT"){
+			resolve("NO_EXIF_SEGMENT");
+		}else if(error){
+			console.log(JSON.stringify(error));
+			console.log("Fehler beim öffnen der Bild Datei!")
 			reject(error);
 		}
 		resolve(exifData);
@@ -47,8 +49,10 @@ function getImageExifData(image){return new Promise((resolve,reject)=>{
 })}
 async function getImageCreateDate(image){
 	const exifData=await getImageExifData(image);
-
-	let [date,time]=exifData.exif.CreateDate.split(" ");
+	if(typeof(exifData)==="string") return [false,exifData];
+	const pictureDate=exifData.exif.CreateDate;
+	if(!pictureDate) return [false,"NO_CREATE_DATE"];
+	let [date,time]=pictureDate.split(" ");
 	date=date.split(":").join(".");
 	return [date,time];
 }
@@ -124,6 +128,19 @@ const [_node,_thisFile,input,output="output",...parameters]=process.argv;
 	let fails=[];
 	for(const picture of pictures){
 		const date=await getImageCreateDate(picture);
+		if(date[0]===false){
+			if(date[1]==="NO_CREATE_DATE"){
+				console.log(error_str+"File "+picture+" has no Create-Date Tag! Action canceled!");
+				fails.push([picture,"Picture has none Create-Date Tag!"]);
+				continue;
+			}
+			else if(date[1]==="NO_EXIF_SEGMENT"){
+				console.log(error_str+"File "+picture+" has no Exif Tags! Action canceled!");
+				fails.push([picture,"Picture has no Exif Tag!"]);
+				continue;
+			}
+			else throw new Error("known error: "+date[1]);
+		}
 		const extension="."+picture.split(".").pop(".").toLowerCase();
 		const newFilename=date[0].split(".").join("")+"_"+date[1].split(":").join("")+extension;
 		const newOutput=output+"/"+newFilename;
