@@ -93,7 +93,9 @@ const [_node,_thisFile,input,output="output",...parameters]=process.argv;
 	const pictures=[];
 	let dirs=[];
 	let items=fs.readdirSync(input).map(item=>input+"/"+item);
-	
+
+	console.log(items.length+" Items found! sorting items...");
+
 	while(items.length){
 		for(const item of items){
 			const lstat=await lstatPromise(item);
@@ -113,8 +115,10 @@ const [_node,_thisFile,input,output="output",...parameters]=process.argv;
 		}
 		items=[];
 		for(const dir of dirs){
-			console.log("Open subfolder: "+dir);
-			items.push(...fs.readdirSync(dir).map(item=>dir+"/"+item));
+			console.log(wait_str+" Open subfolder: "+dir);
+			const newItems=fs.readdirSync(dir).map(item=>dir+"/"+item);
+			console.log(wait_str+" "+newItems.length+" Items found in subfolder, add to sort list...");
+			items.push(...newItems);
 		}
 		dirs=[];
 	}
