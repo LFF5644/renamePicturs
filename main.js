@@ -8,11 +8,21 @@ const allowedImgTypes=[
 	".jpg",
 	".png",
 ];
+const imgStarts=[
+	"IMG_",
+	"PANO_",
+];
+const movStarts=[
+	"MOV_",
+];
 const allowedMovTypes=[
 	".avi",
 	".mov",
 	".mp4",
+	".3gp",
 ];
+
+// if someone like me is on windows xp coding that program these "?" are emojis.
 const wait_str="⌛";
 const error_str="❌"; // ❎ ✖️ 🔴
 const check_str="✅"; // ✔️ ☑️ 🟢
@@ -38,19 +48,54 @@ function copyFilePromise(file,newFile){return new Promise(resolve=>{
 function getImageExifData(image){return new Promise((resolve,reject)=>{
 	exif.ExifImage({image},(error,exifData)=>{
 		if(error){
-			console.log("Fehler beim Öffnen der Bilddatei!");
+			console.log(error_str+" cant read exif of image: "+image);
 			console.log(error);
 			reject(error);
+			return;
 		}
 		resolve(exifData);
 	});
 })}
 async function getImageCreateDate(image){
-	const exifData=await getImageExifData(image);
-
-	let [date,time]=exifData.exif.CreateDate.split(" ");
-	date=date.split(":").join(".");
-	return [date,time];
+	let hasExifData=false;
+	let date="";
+	let time="";
+	try{
+		const exifData=await getImageExifData(image);
+		date=exifData.exif.CreateDate.split(" ")[0].split(":").join(".");
+		time=exifData.exif.CreateDate.split(" ")[1];
+		hasExifData=true;
+	}catch(e){}
+	//console.log(date,time);
+	if(hasExifData) return [date,time];
+	//return; // beause unfinished.
+	const filename=image.split("/").pop();
+	const filenameStart=imgStarts.find(item=>filename.startsWith(item));
+	checkFilename: if(filenameStart){
+		let data=filename.split(".")[0].split(filenameStart).join("");
+		// data shoud be "20221224_123142" that means 24.12.2022 at 12:31 and 42 sec.
+		if(
+			isNaN(Number(data.substring(0,8)))||
+			data.substring(8,9)!=="_"||
+			isNaN(Number(data.substring(9)))
+		){
+			break checkFilename;
+		}
+		date=data.substring(0,4)+"."+data.substring(4,6)+"."+data.substring(6,8);
+		time=data.substring(9,11)+":"+data.substring(11,13)+":"+data.substring(13,15);
+		return [date,time];
+	}
+	else if(
+		isNaN(Number(filename.substring(0,8)))||
+		filename.substring(8,9)!=="_"||
+		isNaN(Number(filename.substring(9)))
+	){
+		date=filename.substring(0,4)+"."+filename.substring(4,6)+"."+filename.substring(6,8);
+		time=filename.substring(9,11)+":"+filename.substring(11,13)+":"+filename.substring(13,15);
+		return [date,time];
+	}
+	console.log("ERROR WITH FILE! "+image);
+	throw new Error("cant read createDate!");
 }
 function includesParameter(parameter){
 	return (
@@ -75,12 +120,13 @@ const [_node,_thisFile,input,output="output",...parameters]=process.argv;
 	if(includesParameter("help")){
 		console.log("Help:\n[pictures folder] [output folder] [...parameters]");
 		console.log("--help => Zeigt diese Hilfe liste an.");
+		console.log("--subfolder => Durchsucht unterordner.")
 		console.log("--delete => Löscht Original Bilddateien.");
 		process.exit(0);
 	}
 
 	if(!input||!await existsPromise(input)){
-		console.log("Pictures Folder not found or given!");
+		console.log("Pictures Folder not found or given! "+input);
 		process.exit(1);
 	}
 
@@ -89,7 +135,7 @@ const [_node,_thisFile,input,output="output",...parameters]=process.argv;
 	const pictures=[];
 	let dirs=[];
 	let items=fs.readdirSync(input).map(item=>input+"/"+item);
-	
+
 	while(items.length){
 		for(const item of items){
 			const lstat=await lstatPromise(item);
@@ -104,11 +150,10 @@ const [_node,_thisFile,input,output="output",...parameters]=process.argv;
 			else if(isDirectory){
 				dirs.push(item);
 			}
-
-
 		}
 		items=[];
 		for(const dir of dirs){
+			if(!includesParameter("subfolder")) break;
 			console.log("Open subfolder: "+dir);
 			items.push(...fs.readdirSync(dir).map(item=>dir+"/"+item));
 		}
