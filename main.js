@@ -47,9 +47,11 @@ function copyFilePromise(file,newFile){return new Promise(resolve=>{
 })}
 function getImageExifData(image){return new Promise((resolve,reject)=>{
 	exif.ExifImage({image},(error,exifData)=>{
-		if(error){
-			console.log(error_str+" cant read exif of image: "+image);
-			console.log(error);
+		if(error&&error.code==="NO_EXIF_SEGMENT"){
+			resolve("NO_EXIF_SEGMENT");
+		}else if(error){
+			console.log(JSON.stringify(error));
+			console.log("Fehler beim öffnen der Bild Datei!")
 			reject(error);
 			return;
 		}
@@ -136,6 +138,8 @@ const [_node,_thisFile,input,output="output",...parameters]=process.argv;
 	let dirs=[];
 	let items=fs.readdirSync(input).map(item=>input+"/"+item);
 
+	console.log(items.length+" Items found! sorting items...");
+
 	while(items.length){
 		for(const item of items){
 			const lstat=await lstatPromise(item);
@@ -154,8 +158,10 @@ const [_node,_thisFile,input,output="output",...parameters]=process.argv;
 		items=[];
 		for(const dir of dirs){
 			if(!includesParameter("subfolder")) break;
-			console.log("Open subfolder: "+dir);
-			items.push(...fs.readdirSync(dir).map(item=>dir+"/"+item));
+			console.log(wait_str+" Open subfolder: "+dir);
+			const newItems=fs.readdirSync(dir).map(item=>dir+"/"+item);
+			console.log(wait_str+" "+newItems.length+" Items found in subfolder, add to sort list...");
+			items.push(...newItems);
 		}
 		dirs=[];
 	}
@@ -169,6 +175,19 @@ const [_node,_thisFile,input,output="output",...parameters]=process.argv;
 	let fails=[];
 	for(const picture of pictures){
 		const date=await getImageCreateDate(picture);
+		if(date[0]===false){
+			if(date[1]==="NO_CREATE_DATE"){
+				console.log(error_str+"File "+picture+" has no Create-Date Tag! Action canceled!");
+				fails.push([picture,"Picture has none Create-Date Tag!"]);
+				continue;
+			}
+			else if(date[1]==="NO_EXIF_SEGMENT"){
+				console.log(error_str+"File "+picture+" has no Exif Tags! Action canceled!");
+				fails.push([picture,"Picture has no Exif Tag!"]);
+				continue;
+			}
+			else throw new Error("known error: "+date[1]);
+		}
 		const extension="."+picture.split(".").pop(".").toLowerCase();
 		const newFilename=date[0].split(".").join("")+"_"+date[1].split(":").join("")+extension;
 		const newOutput=output+"/"+newFilename;
